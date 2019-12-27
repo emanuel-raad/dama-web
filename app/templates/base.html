@@ -1,13 +1,11 @@
 {% extends 'bootstrap/base.html' %}
 
 {% block title %}
-    {% if title %}{{ title }} - Microblog{% else %}Welcome to Microblog{% endif %}
+    {% if title %}{{ title }}{% else %} Dama Game {% endif %}
 {% endblock %}
 
 {% block navbar %}
     <div>Microblog: <a href="/index">Home</a></div>
+    <div>Game: <a href="/game">Game</a></div>
     <hr>
-{% endblock %}
-
-{% block content %}
 {% endblock %}
