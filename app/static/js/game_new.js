@@ -3,44 +3,33 @@ var $board = $('#board')
 var squareToHighlight = null
 var squareClass = 'square-55d63'
 
-function removeHighlights (color) {
-  $board.find('.' + squareClass)
-    .removeClass('highlight-' + color)
-}
-
 function onDragStart (source, piece, position, orientation) {
-  // only pick up pieces for White
-  // if (piece.search(/^b/) !== -1) return false
-  
-  
   // disable moving through the board for now
   return false
 }
 
-// function onDrop (source, target) {
-//   // highlight white's move
-//   removeHighlights('white')
-//   $board.find('.square-' + source).addClass('highlight-white')
-//   $board.find('.square-' + target).addClass('highlight-white')
+var socket = io();
+socket.on('connect', function() {
+  socket.emit('my event', {data: 'I\'m connected!'});
+});
 
-//   /*
-//   At the end of onDrop, get the AI to make a move by calling
-//   another AI move function. Highlight the AI moves inside their move function
-//   */
-// }
+socket.on('message-log', function(text) {
+  console.log(text)
+  $("#message_log").html(text)
+});
 
-/*
-function onMoveEnd () {
-  $board.find('.square-' + squareToHighlight)
-    .addClass('highlight-black')
+socket.on('reset-board', function(text) {
+  console.log('Resetting board')
+  board.clear(false)
+  board.start
+  removeHighlights('white')
+  removeHighlights('black')
+});
+
+function removeHighlights (color) {
+  $board.find('.' + squareClass)
+    .removeClass('highlight-' + color)
 }
-*/
-
-// update the board position after the piece snap
-// for castling, en passant, pawn promotion
-// function onSnapEnd () {
-  
-// }
 
 var board = Chessboard('board', {
     draggable: true,
@@ -56,32 +45,89 @@ var board = Chessboard('board', {
 })
 
 $('#startBtn').on('click', function() {
-    removeHighlights('white')
-    removeHighlights('black')
-    board.start()
+  console.log('Starting game!');
+  socket.emit('start-event', 1);
 })
 
-$('#clearBtn').on('click', function() {
-    removeHighlights('white')
-    removeHighlights('black')
-    board.clear()
+socket.on('draw-event', function(fen) {
+  console.log('Received draw event for: ' + fen);
+  board.position(fen, false);
 })
 
-$('#flipOrientationBtn').on('click', board.flip)
+socket.on('display-moves', function(movesHtml) {
+  $("#place_for_moves").html(movesHtml)
+})
+
+$("body").on({
+  // Color the moused over move
+  mouseenter: function() {
+    $(this).css("background-color", "pink")
+    move = $(this).attr('data-move').split('-')
+
+    for(let i = 0; i < move.length ; i++) {
+      greySquare(move[i])
+    }
+
+  },
+  
+  // Remove the color
+  mouseleave: function() {
+    $(this).css("background-color", "transparent")
+    removeGreySquares()
+  },
+
+  // Do something when it's clicked on
+  click: async function() {
+    clearMoves()
+    move = $(this).attr('data-move')
+    remove = $(this).attr('data-remove')
+    index = $(this).attr('data-idx')
+
+    console.log("Moving: " + move)
+    console.log("Removing: " + remove)
+
+    socket.emit('player-choice', index);
+  
+}}, "#move");
+
+var whiteSquareGrey = '#a9a9a9'
+var blackSquareGrey = '#696969'
+
+function removeGreySquares () {
+  $('#board .square-55d63').css('background', '')
+}
+
+function greySquare (square) {
+  var $square = $('#board .square-' + square)
+
+  var background = whiteSquareGrey
+  if ($square.hasClass('black-3c85d')) {
+    background = blackSquareGrey
+  }
+
+  $square.css('background', background)
+}
+
+function clearMoves() {
+  $("#place_for_moves").html('Waiting for Computer...');
+  removeGreySquares()
+}
+
+socket.on('animate-move-event', async function(json) {
+  console.log('Animating!');
+  
+  var obj = JSON.parse(json);
+  console.log(obj)
+
+  removeHighlights(obj.color)
+
+  await performMove(obj.color, obj.move, obj.remove);
+  await socket.emit('animation-event-done', 1)
+});
 
 function sleep (ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-
-// function movePromise(str1, str2, color) {
-//     console.log('moving: ' + str1 + ' and ' + str2)
-//     board.move(str1, str2)
-    
-//     $board.find('.square-' + str1.substring(0,2)).addClass('highlight-' + color)
-//     $board.find('.square-' + str2.substring(3)).addClass('highlight-' + color)
-
-//     return sleep(500)
-// }
 
 async function performMove(color, move, remove)
 {
@@ -123,181 +169,4 @@ async function movePromise(color, res)
   }
 
   return sleep(500)
-}
-
-$('#move1Btn').on('click', async function () {
-  
-  console.log('Button clicked')
-  
-  removeHighlights('white')
-  await performMove('white', 'e3-e8-a8', 'e5-c8')
-
-  // await movePromise('h1-h5', 'h5-h8')
-  // await movePromise('h8-c8', 'c8-a8')  
-});
-
-$('#getBtn').on('click', getLegalMoves)
-
-$('#postBtn').on('click', function() {
-  fetch('/hello', {
-      // Specify the method
-      method: 'POST',
-      headers: {"content-type": "application/json"},
-      // A JSON payload
-      body: JSON.stringify({
-          "greeting": "Hello from the browser!"
-      })
-  }).then(function (response) { // At this point, Flask has printed our JSON
-      return response.text();
-  }).then(function (text) {
-      console.log('POST response: ');
-
-      // Should be 'OK' if everything was successful
-      console.log(text);
-  });
-})
-
-var whiteSquareGrey = '#a9a9a9'
-var blackSquareGrey = '#696969'
-
-function removeGreySquares () {
-  $('#board .square-55d63').css('background', '')
-}
-
-function greySquare (square) {
-  var $square = $('#board .square-' + square)
-
-  var background = whiteSquareGrey
-  if ($square.hasClass('black-3c85d')) {
-    background = blackSquareGrey
-  }
-
-  $square.css('background', background)
-}
-
-$("body").on({
-  mouseenter: function() {
-    $(this).css("background-color", "pink")
-    move = $(this).attr('data-move').split('-')
-
-    for(let i = 0; i < move.length ; i++) {
-      console.log(move[i])
-      greySquare(move[i])
-    }
-
-  },
-  mouseleave: function() {
-    $(this).css("background-color", "transparent")
-    removeGreySquares()
-  },
-  click: async function() {
-    clearMoves()
-    move = $(this).attr('data-move')
-    remove = $(this).attr('data-remove')
-    console.log("Moving: " + move)
-    console.log("Removing: " + remove)
-  
-    removeHighlights('white')
-    removeHighlights('black')
-    
-    await performMove('white', move, remove)
-    await updateBoard()
-    await nextTurn()
-  
-    await makeAIMove()
-    await updateui()
-    await nextTurn()
-    await getLegalMoves()
-}
-}, "#move");
-
-async function updateBoard() {
-  fen = board.fen()
-  console.log('Updating board to: '+ fen)
-
-  const response = await fetch('/updateBoard', {
-    // Specify the method
-    method: 'POST',
-    headers: { "content-type": "application/json" },
-    // A JSON payload
-    body: JSON.stringify({
-      "fen": fen
-    })
-  })
-
-  console.log('POST response: ')
-  console.log(response)
-  const res = await response.text()
-
-  board.position(res)
-}
-
-async function updateui() {
-  const response = await fetch('/updateui', {
-    // Specify the method
-    method: 'POST',
-    headers: { "content-type": "application/json" },
-  });
-  console.log('POST response: ');
-  console.log(response);
-
-  const fen = await response.text()
-  // Should be 'OK' if everything was successful
-  board.position(fen)
-}
-
-async function nextTurn() {
-  const text = await fetch('/nextturn', {
-    // Specify the method
-    method: 'POST',
-  });
-  console.log('POST response: ');
-  console.log(text);
-}
-
-async function makeAIMove() {
-  const response = await fetch('/makeaimove', {
-    // Specify the method
-    method: 'POST',
-    headers: { "content-type": "application/json" },
-  })
-
-  console.log('POST response: ')
-  console.log(response)
-
-  const text = await response.text()
-  res = text.split('-')
-
-  for(let i = 0; i < res.length; i++) {
-    console.log(res[i])
-    $board.find('.square-' + res[i]).addClass('highlight-' + 'black')
-  }
-
-}
-
-// rewrite as async
-function getLegalMoves() {
-  // const response = await fetch('/legalmoves', {
-  //   headers: { "content-type": "application/json" },
-  // })
-  // console.log(response)
-  // const json = await response.json()
-  // console.log('GET response as JSON:')
-  // console.log(json); // Here’s our JSON object
-  // $("#place_for_moves").html(json['moves'])
-    return $.ajax({
-      url: "/legalmoves",
-      type: "get",
-      success: function(response) {
-        $("#place_for_moves").html(response);
-      },
-      error: function(xhr) {
-        //Do Something to handle error
-      }
-    });
-}
-
-function clearMoves() {
-  $("#place_for_moves").html('Waiting for Computer...');
-  removeGreySquares()
 }

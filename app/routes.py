@@ -15,10 +15,6 @@ from app import app
 @app.route('/')
 @app.route('/index')
 def index():
-
-    s = dama.DamaSingleton.getInstance()
-    print(s)
-
     user = {'username': 'Miguel'}
 
     posts = [
@@ -55,12 +51,13 @@ def test_page():
 
 @app.route('/game')
 def game():
-    s = dama.DamaSingleton.getInstance()
-    print(s)
-
     message = {'message':'Hello from Flask!'}
 
     return render_template('game.html', title="Dama", message=message)
+
+@app.route('/socket')
+def socket():
+    return render_template('socket.html', title="Socket test")
 
 @app.route('/fen', methods=['GET'])
 def get_fen():
