@@ -36,7 +36,7 @@ def start_game(status):
     emit('draw-event', bitboard2fen(game.bitboard))
 
     player1 = Human(Color.WHITE)
-    player2 = AlphaBeta(Color.BLACK, movesAhead=3)
+    player2 = AlphaBeta(Color.BLACK, movesAhead=4)
 
     game.setPlayer(player1)
     game.setPlayer(player2)
